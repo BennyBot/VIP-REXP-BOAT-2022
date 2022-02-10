@@ -9,7 +9,7 @@ if datacollect:
 while True:
     line = ser.readline().decode('utf-8').rstrip()
     sensorData = dict()
-    if len(line) not 0:
+    if not len(line) ==0:
         data = line.split(",")
         for i in range(len(sensors)):
             sensorData[sensors[i]] = data[i]
