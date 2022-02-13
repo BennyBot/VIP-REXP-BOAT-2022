@@ -1,5 +1,24 @@
-double data[5] = {0,0,0,0,0};
+#define TURBIDITY_INPUT A0
+#define DO_INPUT A1
 
+/*
+ * DO sensor documents/code needed : https://wiki.dfrobot.com/Gravity__Analog_Dissolved_Oxygen_Sensor_SKU_SEN0237
+ * 
+ */
+#define CAL_DO_HIGH_T 30
+#define CAL_DO_HIGH_V 2000
+#define CAL_DO_LOW_T 25
+#define CAL_DO_LOW_V 1500
+
+
+double data[5] = {0,0,0,0,0};
+const uint16_t DO_table[41] = {
+    14460, 14220, 13820, 13440, 13090, 12740, 12420, 12110, 11810, 11530,
+    11260, 11010, 10770, 10530, 10300, 10080, 9860, 9660, 9460, 9270,
+    9080, 8900, 8730, 8570, 8410, 8250, 8110, 7960, 7820, 7690,
+    7560, 7430, 7300, 7180, 7070, 6950, 6840, 6730, 6630, 6530, 6410};
+
+ 
 void setup() {
   /*
    * Initialize all I/O pins
@@ -9,18 +28,19 @@ void setup() {
    * Dissolved Oxygen pins : None
    * Electrical conductivity pins : None
    */
-  
+  pinMode(TURBIDITY_INPUT, INPUT);
+  pinMode(DO_INPUT, INPUT);
   Serial.begin(9600); // start serial communication
 }
 
 double get_temperature() {
 
-  return 0;
+  return 25;
 }
 
 double get_turbidity() {
-
-  return 0;
+  double turbidity = analogRead(TURBIDITY_INPUT);
+  return turbidity;
 }
 
 double get_ph() {
@@ -29,8 +49,13 @@ double get_ph() {
 }
 
 double get_dissolved_oxygen() {
+  double temperature = get_temperature();
+  int raw = analogRead(DO_INPUT);
+  int voltage = raw * 5000 / 1024;
 
-  return 0;
+  double saturation = (temperature - CAL_DO_LOW_T) * (CAL_DO_HIGH_V - CAL_DO_LOW_V) / (CAL_DO_HIGH_T - CAL_DO_LOW_T) + CAL_DO_LOW_V;
+  double dissolved_oxygen = voltage * DO_table[(uint16_t)temperature] / saturation; 
+  return dissolved_oxygen;
 }
 
 double get_electrical_conductivity() {
