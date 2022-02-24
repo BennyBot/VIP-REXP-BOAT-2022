@@ -73,6 +73,7 @@ void get_data() {
 
 
 void loop() {
+  unsigned long timestamp = millis();
   get_data();
 
   /*
@@ -80,8 +81,8 @@ void loop() {
    * Returned in CSV file format for easy data analysis.
    */
    
-  String serialData = String(data[0]);
-  for(int i=1; i<5; i++) {
+  String serialData = String(timestamp);
+  for(int i=0; i<5; i++) {
     serialData.concat(",");
     serialData.concat(data[i]);
   }
