@@ -39,7 +39,10 @@ double get_temperature() {
 }
 
 double get_turbidity() {
-  double turbidity = analogRead(TURBIDITY_INPUT);
+  double analog = analogRead(TURBIDITY_INPUT);
+  double voltage = analog * 5 / 1024
+  double turbidity = -1120.4*voltage*voltage + 5742.3*voltage - 4352.9
+  
   return turbidity;
 }
 
