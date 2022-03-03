@@ -40,8 +40,9 @@ double get_temperature() {
 
 double get_turbidity() {
   double analog = analogRead(TURBIDITY_INPUT);
-  double voltage = analog * 5 / 1024
-  double turbidity = -1120.4*voltage*voltage + 5742.3*voltage - 4352.9
+  double voltage = analog * 5 / 1024;
+  //return voltage;
+  double turbidity = -500*voltage + 2100;
   
   return turbidity;
 }
@@ -54,8 +55,7 @@ double get_ph() {
 double get_dissolved_oxygen() {
   double temperature = get_temperature();
   int raw = analogRead(DO_INPUT);
-  int voltage = raw * 5000 / 1024;
-
+  int voltage = raw * 5 / 1024;
   double saturation = (temperature - CAL_DO_LOW_T) * (CAL_DO_HIGH_V - CAL_DO_LOW_V) / (CAL_DO_HIGH_T - CAL_DO_LOW_T) + CAL_DO_LOW_V;
   double dissolved_oxygen = voltage * DO_table[(uint16_t)temperature] / saturation; 
   return dissolved_oxygen;
@@ -67,16 +67,18 @@ double get_electrical_conductivity() {
 }
 
 void get_data() {
-  data[0] = get_temperature();
+  data[0] = -10;
   data[1] = get_turbidity();
-  data[2] = get_ph();
+  data[2] = -10;
   data[3] = get_dissolved_oxygen();
-  data[4] = get_electrical_conductivity();
+  data[4] = -10;
 }
 
 
 void loop() {
-  unsigned long timestamp = millis();
+  int count = 1;
+  while(true) {
+    
   get_data();
 
   /*
@@ -84,12 +86,14 @@ void loop() {
    * Returned in CSV file format for easy data analysis.
    */
    
-  String serialData = String(timestamp);
+  String serialData = String(count);
   for(int i=0; i<5; i++) {
     serialData.concat(",");
     serialData.concat(data[i]);
   }
-
-  Serial.println(serialData);
+  count++;
+   Serial.println(serialData);
   delay(100);
+  }
+
 }
