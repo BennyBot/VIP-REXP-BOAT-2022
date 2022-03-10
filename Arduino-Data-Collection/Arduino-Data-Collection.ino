@@ -1,5 +1,9 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
 #define TURBIDITY_INPUT A0
 #define DO_INPUT A1
+#define ONE_WIRE_BUS 1 // Digital pin for temperature sensor
 
 /*
  * DO sensor documents/code needed : https://wiki.dfrobot.com/Gravity__Analog_Dissolved_Oxygen_Sensor_SKU_SEN0237
@@ -18,7 +22,9 @@ const uint16_t DO_table[41] = {
     9080, 8900, 8730, 8570, 8410, 8250, 8110, 7960, 7820, 7690,
     7560, 7430, 7300, 7180, 7070, 6950, 6840, 6730, 6630, 6530, 6410};
 
- 
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
 void setup() {
   /*
    * Initialize all I/O pins
@@ -34,8 +40,8 @@ void setup() {
 }
 
 double get_temperature() {
-
-  return 25;
+  sensors.requestTemperatures();
+  return sensors.getTemptCByIndex(0);
 }
 
 double get_turbidity() {
