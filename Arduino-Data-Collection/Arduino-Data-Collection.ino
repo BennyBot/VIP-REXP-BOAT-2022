@@ -41,7 +41,7 @@ void setup() {
 
 double get_temperature() {
   sensors.requestTemperatures();
-  return sensors.getTemptCByIndex(0);
+  return sensors.getTempCByIndex(0);
 }
 
 double get_turbidity() {
