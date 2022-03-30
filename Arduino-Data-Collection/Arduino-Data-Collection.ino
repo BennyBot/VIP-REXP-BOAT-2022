@@ -3,7 +3,11 @@
 
 #define TURBIDITY_INPUT A0
 #define DO_INPUT A1
-#define ONE_WIRE_BUS 1 // Digital pin for temperature sensor
+#define PH_INPUT A2
+#define TEMPERATURE_INPUT 2 // Digital pin for temperature sensor
+
+#define PH_N_COLLECT 5
+#define PH_COLLECT_TIME 100
 
 /*
  * DO sensor documents/code needed : https://wiki.dfrobot.com/Gravity__Analog_Dissolved_Oxygen_Sensor_SKU_SEN0237
@@ -22,26 +26,75 @@ const uint16_t DO_table[41] = {
     9080, 8900, 8730, 8570, 8410, 8250, 8110, 7960, 7820, 7690,
     7560, 7430, 7300, 7180, 7070, 6950, 6840, 6730, 6630, 6530, 6410};
 
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
+OneWire temperature_sensor(TEMPERATURE_INPUT);
+
 
 void setup() {
   /*
    * Initialize all I/O pins
-   * Temperature Sensor pins : None
-   * Turbidity Sensor pins : None
+   * Temperature Sensor pins : Digital 2
+   * Turbidity Sensor pins : Analog 0
    * pH Sensor pins : None
-   * Dissolved Oxygen pins : None
+   * Dissolved Oxygen pins : Analog 1
    * Electrical conductivity pins : None
    */
   pinMode(TURBIDITY_INPUT, INPUT);
   pinMode(DO_INPUT, INPUT);
+  pinMode(PH_INPUT, INPUT);
   Serial.begin(9600); // start serial communication
 }
 
 double get_temperature() {
-  sensors.requestTemperatures();
-  return sensors.getTempCByIndex(0);
+
+  /*
+   * References
+   * 
+   * Wiring diagram: https://randomnerdtutorials.com/guide-for-ds18b20-temperature-sensor-with-arduino/
+   * - We need a 4.7kOhm resistor incase the one in the bag breaks
+   * 
+   * OneWire Code: https://wiki.dfrobot.com/Waterproof_DS18B20_Digital_Temperature_Sensor__SKU_DFR0198_
+   */
+  byte data[12];
+  byte addr[8];
+
+  if ( !temperature_sensor.search(addr)) {
+      //no more sensors on chain, reset search
+      temperature_sensor.reset_search();
+      return -1000;
+  }
+
+  if ( OneWire::crc8( addr, 7) != addr[7]) {
+      Serial.println("CRC is not valid!");
+      return -1000;
+  }
+
+  if ( addr[0] != 0x10 && addr[0] != 0x28) {
+      Serial.print("Device is not recognized");
+      return -1000;
+  }
+
+  temperature_sensor.reset();
+  temperature_sensor.select(addr);
+  temperature_sensor.write(0x44,1); // start conversion, with parasite power on at the end
+
+  byte present = temperature_sensor.reset();
+  temperature_sensor.select(addr);
+  temperature_sensor.write(0xBE); // Read Scratchpad
+
+
+  for (int i = 0; i < 9; i++) { // we need 9 bytes
+    data[i] = temperature_sensor.read();
+  }
+
+  temperature_sensor.reset_search();
+
+  byte MSB = data[1];
+  byte LSB = data[0];
+
+  float tempRead = ((MSB << 8) | LSB); //using two's compliment
+  float TemperatureSum = tempRead / 16;
+
+  return TemperatureSum;
 }
 
 double get_turbidity() {
@@ -54,8 +107,19 @@ double get_turbidity() {
 }
 
 double get_ph() {
+  double ph_average = 0;
 
-  return 0;
+  long next_collect_time = millis();
+  int i=0;
+  while(i < PH_N_COLLECT) {
+    if(millis() >= next_collect_time) {
+      ph_average += analogRead(PH_INPUT) / PH_N_COLLECT * 3.5 * 5 / 1024;
+      next_collect_time = millis() + (PH_COLLECT_TIME / PH_N_COLLECT);
+      i++;
+    } 
+  }
+  
+  return ph_average;
 }
 
 double get_dissolved_oxygen() {
@@ -73,9 +137,9 @@ double get_electrical_conductivity() {
 }
 
 void get_data() {
-  data[0] = -10;
+  data[0] = get_temperature();
   data[1] = get_turbidity();
-  data[2] = -10;
+  data[2] = get_ph();
   data[3] = get_dissolved_oxygen();
   data[4] = -10;
 }
