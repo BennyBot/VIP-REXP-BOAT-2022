@@ -1,13 +1,17 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-#define TURBIDITY_INPUT A0
-#define DO_INPUT A1
-#define PH_INPUT A2
+#define DATA_ARRAY_SIZE 7
+
+#define TDS_INPUT A1
+#define ORP_INPUT A2
+#define PH_INPUT A3
+#define TURBIDITY_INPUT A4
+
 #define TEMPERATURE_INPUT 2 // Digital pin for temperature sensor
 
-#define PH_N_COLLECT 5
-#define PH_COLLECT_TIME 100
+#define PH_N_COLLECT 10
+#define PH_COLLECT_TIME 200
 
 /*
  * DO sensor documents/code needed : https://wiki.dfrobot.com/Gravity__Analog_Dissolved_Oxygen_Sensor_SKU_SEN0237
@@ -19,12 +23,7 @@
 #define CAL_DO_LOW_V 1500
 
 
-double data[5] = {0,0,0,0,0};
-const uint16_t DO_table[41] = {
-    14460, 14220, 13820, 13440, 13090, 12740, 12420, 12110, 11810, 11530,
-    11260, 11010, 10770, 10530, 10300, 10080, 9860, 9660, 9460, 9270,
-    9080, 8900, 8730, 8570, 8410, 8250, 8110, 7960, 7820, 7690,
-    7560, 7430, 7300, 7180, 7070, 6950, 6840, 6730, 6630, 6530, 6410};
+double data[DATA_ARRAY_SIZE];
 
 OneWire temperature_sensor(TEMPERATURE_INPUT);
 
@@ -32,15 +31,12 @@ OneWire temperature_sensor(TEMPERATURE_INPUT);
 void setup() {
   /*
    * Initialize all I/O pins
-   * Temperature Sensor pins : Digital 2
-   * Turbidity Sensor pins : Analog 0
-   * pH Sensor pins : None
-   * Dissolved Oxygen pins : Analog 1
-   * Electrical conductivity pins : None
    */
-  pinMode(TURBIDITY_INPUT, INPUT);
-  pinMode(DO_INPUT, INPUT);
+  pinMode(TDS_INPUT, INPUT);
+  pinMode(ORP_INPUT, INPUT);
   pinMode(PH_INPUT, INPUT);
+  pinMode(TURBIDITY_INPUT, INPUT);
+  pinMode(TEMPERATURE_INPUT, INPUT);
   Serial.begin(9600); // start serial communication
 }
 
@@ -94,18 +90,58 @@ double get_temperature() {
   float tempRead = ((MSB << 8) | LSB); //using two's compliment
   float TemperatureSum = tempRead / 16;
 
+  //Serial.println("Got Temperature!");
   return TemperatureSum;
 }
 
+
+/*
+ * Get the TDS sensor's input
+ * 
+ */
+double get_tds() {
+  double tds_v_average = 0;
+
+  long next_collect_time = millis();
+  int i=0;
+  while(i < PH_N_COLLECT) {
+    if(millis() >= next_collect_time) {
+      tds_v_average += analogRead(PH_INPUT) / PH_N_COLLECT * 3.5 * 5 / 1024;
+      next_collect_time = millis() + (PH_COLLECT_TIME / PH_N_COLLECT);
+      i++;
+    } 
+  }
+  // adjust TDS value based on temperature
+  float tmpComp=1.0+0.02*(data[0]-25.0);
+  float cmpV=tds_v_average/tmpComp;
+  
+  //Serial.println("Got TDS!");
+  return (double)(133.42*cmpV*cmpV*cmpV - 255.86*cmpV*cmpV + 857.39*cmpV)*0.5; //convert voltage value to tds value
+
+}
+
+double get_orp() {
+  return (double)(1.0);
+}
+
+
+/*
+ * Get the turbidity of the water from the sensor
+ */
 double get_turbidity() {
   double analog = analogRead(TURBIDITY_INPUT);
   double voltage = analog * 5 / 1024;
   //return voltage;
   double turbidity = -500*voltage + 2100;
-  
+
+  //Serial.println("Got Turbidity!");
   return turbidity;
 }
 
+
+/*
+ * Get the PH of the water from the sensor
+ */
 double get_ph() {
   double ph_average = 0;
 
@@ -118,10 +154,11 @@ double get_ph() {
       i++;
     } 
   }
-  
+  //Serial.println("Got PH!");
   return ph_average;
 }
 
+/*
 double get_dissolved_oxygen() {
   double temperature = get_temperature();
   int raw = analogRead(DO_INPUT);
@@ -130,24 +167,24 @@ double get_dissolved_oxygen() {
   double dissolved_oxygen = voltage * DO_table[(uint16_t)temperature] / saturation; 
   return dissolved_oxygen;
 }
+*/
 
-double get_electrical_conductivity() {
 
-  return 0;
-}
-
+/*
+ * Get all of our data and store it in our data array
+ */
 void get_data() {
-  data[0] = get_temperature();
-  data[1] = get_turbidity();
-  data[2] = get_ph();
-  data[3] = get_dissolved_oxygen();
-  data[4] = -10;
+  data[0] = (double)(millis() - data[6]);
+  data[6] = data[0] + data[6]; 
+  data[1] = get_temperature();
+  data[2] = get_turbidity();
+  data[3] = get_tds();
+  data[4] = get_orp();
+  data[5] = get_ph();
 }
 
 
 void loop() {
-  int count = 1;
-  while(true) {
     
   get_data();
 
@@ -155,15 +192,14 @@ void loop() {
    * Print the collected data over serial communication
    * Returned in CSV file format for easy data analysis.
    */
-   
-  String serialData = String(count);
-  for(int i=0; i<5; i++) {
+  
+  String serialData = String(data[0]);
+  for(int i=1; i<DATA_ARRAY_SIZE; i++) {
     serialData.concat(",");
     serialData.concat(data[i]);
   }
-  count++;
-   Serial.println(serialData);
-  delay(100);
-  }
+  Serial.println(serialData);
+
+  
 
 }
