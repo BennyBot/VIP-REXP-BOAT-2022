@@ -1,5 +1,9 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <Servo.h>
+
+#define MOTOR_ONE 13
+#define MOTOR_TWO 10
 
 #define DATA_ARRAY_SIZE 7
 
@@ -27,16 +31,24 @@ double data[DATA_ARRAY_SIZE];
 
 OneWire temperature_sensor(TEMPERATURE_INPUT);
 
-
+Servo motor1;
+Servo motor2;
 void setup() {
   /*
    * Initialize all I/O pins
    */
+  motor1.attach(MOTOR_ONE);
+  motor2.attach(MOTOR_TWO);
+  
+  motor1.writeMicroseconds(1500);
+  motor2.writeMicroseconds(1500);
+  
   pinMode(TDS_INPUT, INPUT);
   pinMode(ORP_INPUT, INPUT);
   pinMode(PH_INPUT, INPUT);
   pinMode(TURBIDITY_INPUT, INPUT);
   pinMode(TEMPERATURE_INPUT, INPUT);
+  delay(7000);
   Serial.begin(9600); // start serial communication
 }
 
@@ -185,7 +197,9 @@ void get_data() {
 
 
 void loop() {
-    
+  motor1.writeMicroseconds(1450);
+  motor2.writeMicroseconds(1550);
+  
   get_data();
 
   /*
